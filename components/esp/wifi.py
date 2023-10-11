@@ -242,12 +242,12 @@ class wifi_module(ESPMODULE):
         if http_res == None:
             return None, None, None
         try:
+            http_res = str(http_res)[1:-1]
             parsed_res = str(http_res).partition("+IPD,")[2]
             parsed_res = parsed_res.split(r"\r\n\r\n")
-            body_str = (ure.sub(r"\+IPD,\d+:", "", str(parsed_res[1]))).partition(
-                r"\r\n"
-            )[2]
-            body_str = body_str.partition(r"\r\n0")[0]
+            body_str = ure.sub(r"\+IPD,\d+:", "", str(parsed_res[1]))
+            # .partition( r"\r\n" )[2]
+            # body_str = body_str.partition(r"\r\n0")[0]
 
             headers_str = ure.sub(r"\+IPD,\d+:", "", str(parsed_res[0])).partition(":")[
                 2
@@ -276,7 +276,7 @@ class wifi_module(ESPMODULE):
                 body = body_str  # Fallback to a string if HTML parsing fails
         elif "application/json" in content_type:
             body_str = body_str.replace(r"\r\n", "")
-            # log_message("body_str: " + str(body_str), log_file)
+            log_message("body_str: " + str(body_str), log_file)
             try:
                 body = ujson.loads(body_str)
             except ValueError as e:
