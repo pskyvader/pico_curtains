@@ -1,10 +1,6 @@
 from components.esp.web_client import web_client
 from components.logger import log_message
-
-print("A")
 from components.updater.connection_manager import connect_process
-
-print("b")
 from components.updater.file_manager import get_version
 from components.updater.backup_manager import create_backup, rollback
 import uos
