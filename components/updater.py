@@ -4,7 +4,7 @@ from machine import Timer
 import time
 import sys
 import ujson
-import os
+import uos
 
 
 class updater:
@@ -109,27 +109,46 @@ class updater:
     def create_backup(self, backup_directory="/backup"):
         try:
             # Create an empty backup directory or clear existing files
-            if os.path.exists(backup_directory):
+            log_message(
+                "1: " + backup_directory + str(uos.stat(backup_directory)),
+                self.log_file,
+            )
+            entries = uos.listdir()
+            if backup_directory in entries:
+                # if uos.stat("/")[0] & 0x4000:  # 0x4000 represents directory flag
+                # log_message("1", self.log_file)
+
+                # if (
+                #     uos.stat(backup_directory)[0] & 0x4000
+                # ):  # 0x4000 represents directory flag
+                # if uos.listdir(backup_directory):
+                log_message("1a", self.log_file)
                 self._remove_directory(backup_directory)
-            os.mkdir(backup_directory)
+                log_message("1b", self.log_file)
+            log_message("1c", self.log_file)
+            uos.mkdir(backup_directory)
+            log_message("2", self.log_file)
 
             # Copy every file, subfolder, and files in those subfolders from the root "/" to the backup directory
-            for root, dirs, files in os.ilistdir("/"):
+            for root, dirs, files in uos.ilistdir("/"):
+                log_message("3", self.log_file)
                 for entry in dirs + files:
+                    log_message("4", self.log_file)
                     # Get the absolute path of the file or subdirectory
-                    entry_path = os.path.join(root, entry)
+                    entry_path = root + "/" + entry
 
                     # Get the corresponding path within the backup directory
-                    backup_path = os.path.join(backup_directory, entry_path[1:])
+                    backup_path = backup_directory + "/" + entry_path[1:]
 
                     # Create the necessary directories in the backup directory if they don't exist
-                    self._makedirs(os.path.dirname(backup_path))
+                    self._makedirs(backup_path)
 
                     # Copy the file or subdirectory to the backup directory
                     if entry[0] == 0x4000:  # Directory flag
                         self._mkdir(backup_path)
                     else:
                         self._copy_file(entry_path, backup_path)
+            log_message("5", self.log_file)
 
             # If everything goes well, return True
             log_message("Backup created successfully", self.log_file)
@@ -139,25 +158,25 @@ class updater:
             return False
 
     def _remove_directory(self, directory):
-        for root, dirs, files in os.ilistdir(directory):
+        for root, dirs, files in uos.ilistdir(directory):
             for entry in dirs + files:
-                entry_path = os.path.join(root, entry)
+                entry_path = uos.path.join(root, entry)
                 if entry[0] == 0x4000:  # Directory flag
                     self._remove_directory(entry_path)
                 else:
-                    os.remove(entry_path)
-        os.rmdir(directory)
+                    uos.remove(entry_path)
+        uos.rmdir(directory)
 
     def _makedirs(self, directory):
-        if not os.path.exists(directory):
-            parent = os.path.dirname(directory)
-            if parent and not os.path.exists(parent):
+        if not uos.path.exists(directory):
+            parent = uos.path.dirname(directory)
+            if parent and not uos.path.exists(parent):
                 self._makedirs(parent)
-            os.mkdir(directory)
+            uos.mkdir(directory)
 
     def _mkdir(self, directory):
-        if not os.path.exists(directory):
-            os.mkdir(directory)
+        if not uos.path.exists(directory):
+            uos.mkdir(directory)
 
     def _copy_file(self, src, dst):
         with open(src, "rb") as src_file, open(dst, "wb") as dst_file:
@@ -184,9 +203,9 @@ class updater:
                 route = file_url.split("/", 3)[-1]
 
                 # Create any necessary subdirectories
-                folder_path = os.path.dirname(route)
+                folder_path = uos.path.dirname(route)
                 if folder_path:
-                    os.makedirs(folder_path, exist_ok=True)
+                    uos.makedirs(folder_path, exist_ok=True)
 
                 # Write the downloaded file contents to the appropriate file
                 with open(route, "wb") as f:
@@ -202,30 +221,30 @@ class updater:
     def rollback(self, backup_directory="/backup"):
         try:
             # Check if the backup directory exists
-            if not os.path.exists(backup_directory):
+            if not uos.path.exists(backup_directory):
                 log_message("Backup directory not found", self.log_file)
                 return False
 
             # Remove all existing files and directories
-            for root, dirs, files in os.walk("/"):
+            for root, dirs, files in uos.walk("/"):
                 for file in files:
-                    os.remove(os.path.join(root, file))
+                    uos.remove(uos.path.join(root, file))
                 for dir in dirs:
-                    os.rmdir(os.path.join(root, dir))
+                    uos.rmdir(uos.path.join(root, dir))
 
             # Restore files from the backup directory
-            for root, dirs, files in os.walk(backup_directory):
+            for root, dirs, files in uos.walk(backup_directory):
                 for file in files:
                     # Get the absolute path of the file in the backup directory
-                    backup_file = os.path.join(root, file)
+                    backup_file = uos.path.join(root, file)
 
                     # Get the corresponding path within the root directory
-                    restore_file = os.path.join(
-                        "/", os.path.relpath(backup_file, backup_directory)
+                    restore_file = uos.path.join(
+                        "/", uos.path.relpath(backup_file, backup_directory)
                     )
 
                     # Create the necessary directories in the root directory if they don't exist
-                    self._makedirs(os.path.dirname(restore_file))
+                    self._makedirs(uos.path.dirname(restore_file))
 
                     # Copy the file from the backup directory to the root directory
                     self._copy_file(backup_file, restore_file)
