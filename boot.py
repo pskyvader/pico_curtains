@@ -1,5 +1,5 @@
 import sys
-from components.updater import updater
+from components.updater.updater import updater
 from machine import Pin
 from components.led_control import LEDControl
 from components.logger import log_message

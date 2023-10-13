@@ -174,7 +174,7 @@ class wifi_module(ESPMODULE):
 
         return None
 
-    def create_tcp_connection(self, host, port, is_ssl=False, keepalive=10):
+    def create_tcp_connection(self, host, port, is_ssl=False, keepalive=10, attempt=0):
         tx_data = (
             "AT+CIPSTART="
             + '"'
@@ -194,6 +194,10 @@ class wifi_module(ESPMODULE):
         if not response or self.ESP8266_OK_STATUS not in response:
             if "ALREADY CONNECTED\r\n" in response:
                 return True
+            if attempt < 3:
+                return self.create_tcp_connection(
+                    host, port, is_ssl, keepalive, attempt + 1
+                )
             raise http_connection_fail(host, port)
         return True
 
