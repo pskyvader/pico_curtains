@@ -1,13 +1,15 @@
 from components.esp.wifi import wifi_module
-from components.logger import log_message
 
-
-log_file = "espwebserverlog.txt"
+from lib.logging import getLogger, handlers
 
 
 class web_server(wifi_module):
+    log_file = "espwebserverlog.txt"
+
     def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
         super().__init__(wifi_ssid, wifi_pass, uart_tx, uart_rx)
+        self.logger = getLogger("web_server")
+        self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
 
     def start_web_server(self, port=80):
         """
@@ -17,12 +19,10 @@ class web_server(wifi_module):
             self.set_timeout(30)
             self.set_multiple_connections(1)
             self.set_server(1)
-            log_message(f"ESP: Web server started on port {port}.", log_file)
+            self.logger.info(f"ESP: Web server started on port {port}.")
             return True
         except Exception as e:
-            log_message(
-                f"Failed to start web server on port {port}. error: {e}", log_file
-            )
+            self.logger.error(f"Failed to start web server on port {port}. error: {e}")
             return False
 
     def handle_web_request(self):
@@ -31,22 +31,20 @@ class web_server(wifi_module):
         """
         response = self._receive_command(timeout=10)
         response = response.decode()
-        log_message("Received response: " + response, log_file)  # Debugging statement
+        self.logger.debug("Received response: " + response)
         if len(response) <= 0:
             return None, None, None
 
         if "+IPD," not in response:
             return None, response, None
 
-        # Extract the connection ID from the response
         conn_id_start = response.index("+IPD,") + 5
         conn_id_end = response.index(",", conn_id_start)
         conn_id = int(response[conn_id_start:conn_id_end])
 
-        # Extract the HTTP request from the response
-        request_start = response.find("GET ")  # Find the start of "GET" request
+        request_start = response.find("GET ")
         if request_start == -1:
-            request_start = response.find("POST ")  # Find the start of "POST" request
+            request_start = response.find("POST ")
         request_end = -1
         if request_start != -1:
             request_end = response.find("\r\n\r\n", request_start)
@@ -54,7 +52,6 @@ class web_server(wifi_module):
         if request_end != -1:
             http_request = response[request_start:request_end]
 
-            # Separate headers from request body
             headers, request_body = (
                 http_request.split("\r\n\r\n", 1)
                 if "\r\n\r\n" in http_request
@@ -70,42 +67,35 @@ class web_server(wifi_module):
             with open(html_file_path, "r") as html_file:
                 html_content = html_file.read()
         except OSError as e:
-            log_message(f"Failed to read HTML file: {e}", log_file)
-            self.send_404_response(conn_id)  # Send a 404 Not Found response
+            self.logger.error(f"Failed to read HTML file: {e}")
+            self.send_404_response(conn_id)
             return False
 
-        # Prepare the HTTP response header for chunked encoding
         http_header = (
             "HTTP/1.1 200 OK\r\n"
             "Content-Type: text/html\r\n"
             "Transfer-Encoding: chunked\r\n\r\n"
         )
 
-        # Send the HTTP header
         header_response = self._send_response(conn_id, http_header)
         if header_response is False:
             return False
 
-        # time.sleep(1)  # Introduce a delay after sending the header
-
-        # Send the HTML content in chunks
         max_chunk_size = self.UART_RX_BUFFER_LENGTH - 16
         for i in range(0, len(html_content), max_chunk_size):
             chunk = html_content[i : i + max_chunk_size]
 
-            # Send the chunk in chunked encoding format
             chunk_data = f"{len(chunk):X}\r\n{chunk}\r\n"
             chunk_response = self._send_response(conn_id, chunk_data)
             if chunk_response is False:
                 return False
 
-        # Send the final zero-length chunk to signal the end of the response
         final_response = self._send_response(conn_id, "0\r\n")
         if final_response is False:
-            log_message("Failed to send final chunk. ", log_file)
+            self.logger.error("Failed to send final chunk. ")
             return False
 
-        log_message("Final chunk sent.", log_file)
+        self.logger.info("Final chunk sent.")
 
         self.close_connection(conn_id)
 
@@ -124,8 +114,8 @@ class web_server(wifi_module):
         tx_data = f"AT+CIPSEND={conn_id},{len(response)}\r\n"
         ret_data = self._send_and_receive_command(tx_data)
 
-        if "> " in ret_data:
+        if "> " in str(ret_data):
             return self._send_and_receive_command(response)
         else:
-            log_message("Failed to send HTTP response: " + str(ret_data), log_file)
+            self.logger.critical("Failed to send HTTP response: " + str(ret_data))
             return False

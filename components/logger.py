@@ -1,4 +1,5 @@
 from time import localtime
+from lib import logging
 
 
 def _get_timestamp():
@@ -13,7 +14,7 @@ def log_message(message, log_file, max_lines=100, enable=False):
     log_entry = "[{}] {}\n".format(timestamp, message)
 
     # Print the log entry
-    print(log_entry)
+    print(log_file, log_entry)
     if not enable:
         return log_entry
 

@@ -11,7 +11,7 @@ led_control_instance = LEDControl(25)
 
 
 def boot():
-    log_message("Starting the application", log_file)
+    log_message("Starting the application on Boot", log_file)
     led_control_instance.start_blinking()
     update_instance = updater(
         wifi_ssid="Pabloysofi",

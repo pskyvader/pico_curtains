@@ -1,9 +1,10 @@
 from components.esp.web_client import web_client
-from components.logger import log_message
-from components.updater.connection_manager import connect_process
-from components.updater.file_manager import get_version
-from components.updater.backup_manager import create_backup, rollback
+from components.connection_manager import connect_process
+from components.updater.version_manager import get_version
+from components.updater.backup_manager import BackupManager
 import uos
+
+from lib.logging import getLogger, handlers
 
 
 class updater:
@@ -18,37 +19,51 @@ class updater:
         self.esp_process = web_client(
             wifi_ssid=wifi_ssid, wifi_pass=wifi_pass, uart_tx=uart_tx, uart_rx=uart_rx
         )
+        self.backup_manager = BackupManager(
+            main_dir="", backup_dir="backup", new_version_dir="new"
+        )
+        self.logger = getLogger("updater")
+        self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
+
+    def _download_all_files(self, files_list):
+        for file_url in files_list:
+            file_path = (
+                self.backup_manager.new_version_dir + "/" + file_url.split("/", 3)[-1]
+            )
+
+            (header, body, status_code) = self.esp_process.get_url_response(file_url)
+            if status_code != 200:
+                self.logger.error(f"Failed to download file: {file_url}")
+                return False
+            try:
+                with open(file_path, "w") as file_object:
+                    file_object.write(str(body) + "\n")
+            except OSError as e:
+                self.logger.error(f"Failed to write file {file_url}:" + str(e))
+                return False
+        return True
 
     def update_process(self, files_list):
+        self.logger.info("Update found. Updating new version...")
+        if not self.backup_manager.create_backup():
+            self.logger.error("Backup failed, aborting")
+            return False
+
         try:
-            for file_url in files_list:
-                # Download the file from the specified URL
-                (header, body, status_code) = self.esp_process.get_url_response(
-                    file_url
-                )
-
-                # Check if the download was successful (status code 200)
-                if status_code != 200:
-                    log_message(f"Failed to download file: {file_url}", self.log_file)
+            if not self._download_all_files(files_list):
+                self.logger.error("Failed to download update, rolling back")
+                if self.backup_manager.restore_backup():
+                    self.logger.info("Rolled back. booting old version...")
                     return False
-
-                # Extract the route (folder/file path) from the URL
-                route = file_url.split("/", 3)[-1]
-
-                # Create any necessary subdirectories
-                folder_path = uos.path.dirname(route)
-                if folder_path:
-                    uos.makedirs(folder_path, exist_ok=True)
-
-                # Write the downloaded file contents to the appropriate file
-                with open(route, "wb") as f:
-                    f.write(body)
-
+                self.logger.critical("Rolled back failed, RUUUUN B1TCH, RUUUUN!!!!")
+                return False
+            self.backup_manager.delete_old_version()
+            self.backup_manager.install_new_version()
             # If everything goes well, return True
-            log_message("Update process completed successfully", self.log_file)
+            self.logger.info("Update process completed successfully")
             return True
         except Exception as e:
-            log_message(f"Failed to update process: {e}", self.log_file)
+            self.logger.error(f"Failed to update process: {e}")
             return False
 
     def start_update(self):
@@ -58,14 +73,14 @@ class updater:
         )
 
         if not self.esp_process.is_initialized():
-            log_message("No connection, update aborted.", self.log_file)
+            self.logger.error("No connection, update aborted.")
             return False
 
         url = self.update_url
         port = self.update_port
         (header, body, status_code) = self.esp_process.get_url_response(url, port)
         if body == None:
-            log_message("No body found", self.log_file)
+            self.logger.error("No body found")
             return False
         if not get_version(
             self.esp_process,
@@ -75,22 +90,13 @@ class updater:
             self.log_file,
             body,
         ):
-            log_message(
+            self.logger.info(
                 "No update found. Already updated to the last version",
                 self.log_file,
             )
             return False
-        log_message("Update found. Updating new version...", self.log_file)
-        if not create_backup(self.log_file):
-            log_message("Backup failed, aborting", self.log_file)
+        if not self.update_process(body):
             return False
 
-        if not self.update_process(body):
-            log_message("Update fail, rolling back", self.log_file)
-            if rollback(self.log_file):
-                log_message("Rolled back. booting old version...", self.log_file)
-                return False
-            log_message("Rolled back failed, RUUUUN B1TCH, RUUUUN!!!!", self.log_file)
-            return False
-        log_message("Update succeded. booting new version...", self.log_file)
+        self.logger.info("Update succeded. booting new version...")
         return True
