@@ -19,7 +19,7 @@ class FileManager:
         self.new_version_dir = new_version_dir
         self.backup_dir = backup_dir
 
-        self.logger_file_manager = getLogger("connection_manager")
+        self.logger_file_manager = getLogger("file_manager")
         self.logger_file_manager.addHandler(handlers.RotatingFileHandler(self.log_file))
         self.logger_file_manager.addHandler(StreamHandler())
         if self.supports_rename:
@@ -85,7 +85,9 @@ class FileManager:
         except FileNotFoundError:
             self.logger_file_manager.exception(f"File not found: {from_path}")
         except PermissionError:
-            self.logger_file_manager.exception(f"Permission denied: {from_path} or {to_path}")
+            self.logger_file_manager.exception(
+                f"Permission denied: {from_path} or {to_path}"
+            )
         except Exception as e:
             self.logger_file_manager.exception(f"An error occurred: {e}")
 

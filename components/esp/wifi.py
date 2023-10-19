@@ -257,8 +257,11 @@ class wifi_module(ESPMODULE):
             parsed_res = (http_res).partition("+IPD,")[2]
             self.logger_wifi_module.debug("step 2: " + parsed_res)
             parsed_res = parsed_res.split(r"\r\n\r\n")
-            self.logger_wifi_module.debug("step 3: " + (parsed_res[1]))
-            body_str = ure.sub(r"\+IPD,\d+:", "", (parsed_res[1]))
+            self.logger_wifi_module.debug("step 3 len: ")
+            print(str(len(parsed_res)))
+
+            self.logger_wifi_module.debug("step 3: " + str("".join(parsed_res[1:])))
+            body_str = ure.sub(r"\+IPD,\d+:", "", str("".join(parsed_res[1:])))
             self.logger_wifi_module.debug("step 4: " + parsed_res[0])
 
             headers_str = ure.sub(r"\+IPD,\d+:", "", (parsed_res[0])).partition(":")[2]
@@ -266,7 +269,7 @@ class wifi_module(ESPMODULE):
             status_code = -1
         except Exception as e:
             self.logger_wifi_module.exception(
-                "parse error: " + str(e) + "\n\n\noriginal:" + http_res
+                f"parse error: {str(e)}\n\n\nargs:{str(e.args)}original:{http_res}"
             )
             raise http_response_parse_invalid(e, http_res)
 

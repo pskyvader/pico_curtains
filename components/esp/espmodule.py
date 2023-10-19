@@ -27,14 +27,15 @@ class ESPMODULE:
             rx=Pin(self.ESP_UART_RX),
             txbuf=self.UART_TX_BUFFER_LENGTH,
             rxbuf=self.UART_RX_BUFFER_LENGTH,
-            timeout=1000
+            timeout=1000,
         )
 
     def _send_command(self, at_command):
         """
         Send an AT command to ESP8266 and receive its response.
         """
-        self.logger.debug("AT command: " + str(at_command))
+        self.logger.debug("AT command: ")
+        self.logger.debug(str(at_command))
         self.uart.write(at_command + "\r\n")
 
     def _receive_command(self, pause=1, timeout=10):
@@ -45,7 +46,8 @@ class ESPMODULE:
             if self.uart.any() > 0:
                 while self.uart.any() > 0:
                     chunk = self.uart.read(self.UART_RX_BUFFER_LENGTH)
-                    self.logger.debug("Receiving command chunk: " + str(chunk))
+                    self.logger.debug("Receiving command chunk: ")
+                    self.logger.debug(str(chunk))
                     response += chunk
                     # time.sleep(pause)
                 break
@@ -75,7 +77,9 @@ class ESPMODULE:
         step = 0
         while step < attempts:
             try:
+                self.logger.debug("send command")
                 response = self._receive_command(timeout=attempts)
+                self.logger.debug("receive command")
                 response_str = self._parse_response(response)
             except Exception as e:
                 self.logger.error("Send and receive error: " + str(e))

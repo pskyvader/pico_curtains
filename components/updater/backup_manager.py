@@ -9,7 +9,9 @@ class BackupManager(FileManager):
     def __init__(self, main_dir, new_version_dir, backup_dir):
         super().__init__(main_dir, new_version_dir, backup_dir)
         self.logger_backup_manager = getLogger("backupmanager")
-        self.logger_backup_manager.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger_backup_manager.addHandler(
+            handlers.RotatingFileHandler(self.log_file)
+        )
         self.logger_backup_manager.addHandler(StreamHandler())
 
     def create_backup(self):
@@ -45,7 +47,9 @@ class BackupManager(FileManager):
                 exclude=[self.main_dir, self.new_version_dir],
             )
             self._rmtree(self.backup_dir, preserve=[self.main_dir])
-        self.logger_backup_manager.debug("Backup restored at {} ...".format(self.main_dir))
+        self.logger_backup_manager.debug(
+            "Backup restored at {} ...".format(self.main_dir)
+        )
         return True
 
     def delete_old_version(self):
@@ -60,6 +64,23 @@ class BackupManager(FileManager):
             "Deleted old version at {} ...".format(self.main_dir),
         )
         return True
+
+    def create_new_version(self, files_list):
+        self.logger_backup_manager.debug(
+            "creating new version at  {} ...".format(self.new_version_dir)
+        )
+
+        if self._exists_dir(self.new_version_dir):
+            self._rmtree(self.new_version_dir)
+
+        directories_list = []
+        for file_url in files_list:
+            file_path = self.new_version_dir + "/" + file_url
+            paths = "/".join((file_path.split("/"))[:-1])
+            directories_list.append(paths)
+        directories_list = set(directories_list)
+        for directory in directories_list:
+            self._mk_dirs(directory)
 
     def install_new_version(self):
         self.logger_backup_manager.debug(
