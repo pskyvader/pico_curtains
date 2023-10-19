@@ -1,7 +1,7 @@
 from machine import UART, Pin
 import time
 from components.esp.errors import at_unknown, at_empty
-from lib.logging import getLogger, handlers
+from lib.logging import getLogger, handlers, StreamHandler
 
 
 class ESPMODULE:
@@ -16,11 +16,18 @@ class ESPMODULE:
     def __init__(self, uart_tx, uart_rx):
         self.logger = getLogger("espmodule")
         self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger.addHandler(StreamHandler())
         self.ESP_UART_TX = uart_tx
         self.ESP_UART_RX = uart_rx
 
         self.uart = UART(
-            1, baudrate=115200, tx=Pin(self.ESP_UART_TX), rx=Pin(self.ESP_UART_RX)
+            1,
+            baudrate=115200,
+            tx=Pin(self.ESP_UART_TX),
+            rx=Pin(self.ESP_UART_RX),
+            txbuf=self.UART_TX_BUFFER_LENGTH,
+            rxbuf=self.UART_RX_BUFFER_LENGTH,
+            timeout=1000
         )
 
     def _send_command(self, at_command):
@@ -38,13 +45,13 @@ class ESPMODULE:
             if self.uart.any() > 0:
                 while self.uart.any() > 0:
                     chunk = self.uart.read(self.UART_RX_BUFFER_LENGTH)
-                    self.logger.debug("Receiving command: " + str(chunk))
+                    self.logger.debug("Receiving command chunk: " + str(chunk))
                     response += chunk
-                    time.sleep(pause)
+                    # time.sleep(pause)
                 break
             if time.time() - start_time > timeout:
                 break
-            time.sleep(pause)
+            # time.sleep(pause)
         self.logger.debug("AT response: " + str(response))
         return response
 
@@ -62,13 +69,13 @@ class ESPMODULE:
         else:
             raise at_unknown(str(response_str))
 
-    def _send_and_receive_command(self, at_command, delay=1, attempts=10):
+    def _send_and_receive_command(self, at_command, attempts=10):
         self._send_command(at_command)
 
         step = 0
         while step < attempts:
             try:
-                response = self._receive_command(pause=delay, timeout=attempts)
+                response = self._receive_command(timeout=attempts)
                 response_str = self._parse_response(response)
             except Exception as e:
                 self.logger.error("Send and receive error: " + str(e))

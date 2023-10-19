@@ -4,7 +4,7 @@ from components.esp.errors import (
     url_unsupported,
 )
 import ure
-from lib.logging import getLogger, handlers
+from lib.logging import getLogger, handlers, StreamHandler
 
 
 class web_client(wifi_module):
@@ -12,8 +12,9 @@ class web_client(wifi_module):
 
     def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
         super().__init__(wifi_ssid, wifi_pass, uart_tx, uart_rx)
-        self.logger = getLogger("web_client")
-        self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger_wifi_client = getLogger("web_client")
+        self.logger_wifi_client.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger_wifi_client.addHandler(StreamHandler())
 
     def get_url_response(self, url, port=80, user_agent="RPi-Pico"):
         try:
@@ -47,5 +48,5 @@ class web_client(wifi_module):
             return (header, body, status_code)
 
         except Exception as e:
-            self.logger.error(f"Failed to get URL response from {url}: {e}")
+            self.logger_wifi_client.error(f"Failed to get URL response from {url}: {e}")
             return (None, None, None)

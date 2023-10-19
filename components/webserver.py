@@ -1,17 +1,18 @@
-from components.logger import log_message
 from components.esp.web_server import web_server
 import _thread
 import time
 from machine import Pin
+from lib.logging import getLogger, handlers, StreamHandler
 
 STOP_MESSAGE = "motor stopped"
 START_MESSAGE = "motor running"
-log_file = "webserverlog.txt"
 
 interrupt = Pin(0, Pin.IN, Pin.PULL_DOWN)
 
 
 class WebServer:
+    log_file = "webserver.txt"
+
     def __init__(self, motor_control_instance, led_control_instance):
         self.motor_control_instance = motor_control_instance
         self.led_control_instance = led_control_instance
@@ -21,50 +22,53 @@ class WebServer:
         )
         self.last_request = ""
         self.last_request_time = time.time()
+        self.logger = getLogger("webserver")
+        self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger.addHandler(StreamHandler())
 
     def on_up_pressed(self):
         if self.motor_control_instance.is_motor_running():
-            log_message(STOP_MESSAGE, log_file)
+            self.logger.info(STOP_MESSAGE)
             self.motor_control_instance.stop_motor()
             self.led_control_instance.stop_blinking()
         else:
-            log_message(START_MESSAGE, log_file)
+            self.logger.info(START_MESSAGE)
             self.motor_control_instance.start_motor_up()
             self.led_control_instance.start_blinking()
 
     def on_down_pressed(self):
         if self.motor_control_instance.is_motor_running():
-            log_message(STOP_MESSAGE, log_file)
+            self.logger.info(STOP_MESSAGE)
             self.motor_control_instance.stop_motor()
             self.led_control_instance.stop_blinking()
         else:
-            log_message(START_MESSAGE, log_file)
+            self.logger.info(START_MESSAGE)
             self.motor_control_instance.start_motor_down()
             self.led_control_instance.start_blinking()
 
     def start_web_server(self):
         if self.esp_process.start_web_server(80):
-            log_message("Web server started on port 80.", log_file)
+            self.logger.info("Web server started on port 80.")
             return True
 
-        log_message("Failed to start the web server.", log_file)
+        self.logger.error("Failed to start the web server.")
         return False
 
     def start_web_server_thread(self):
         wifi_connected = self.esp_process.is_wifi_connected()
         self.led_control_instance.set_led_state(wifi_connected)
         if not wifi_connected:
-            log_message("Wifi not available", log_file)
+            self.logger.error("Wifi not available")
             return False
         webserver_started = self.start_web_server()
 
         if webserver_started:
-            log_message("try to start threaded server", log_file)
+            self.logger.debug("try to start threaded server")
             self.thread_id = _thread.start_new_thread(self.handle_requests, ())
-            log_message("threaded server started: " + str(self.thread_id), log_file)
+            self.logger.info("threaded server started: " + str(self.thread_id))
             return True
         else:
-            log_message("Webserver not started", log_file)
+            self.logger.error("Webserver not started")
             return False
 
     def is_web_server_thread_running(self):
@@ -77,7 +81,9 @@ class WebServer:
         return self.last_request, self.last_request_time
 
     def handle_requests(self):
-        thread_log_file = "threadedlog.txt"
+        thread_log_file = "webserver_thread.txt"
+        logger = getLogger("webserver_thread")
+        logger.addHandler(handlers.RotatingFileHandler(thread_log_file))
 
         try:
             while True:
@@ -88,14 +94,14 @@ class WebServer:
                 else:
                     self.led_control_instance.stop_blinking()
 
-                log_message(
+                logger.info(
                     "Loop:",
                     thread_log_file,
                 )
                 headers, request_body, conn_id = self.esp_process.handle_web_request()
                 if headers is None:
                     if request_body is not None:
-                        log_message(
+                        logger.error(
                             "Webserver error:" + str(request_body), thread_log_file
                         )
                     continue
@@ -116,6 +122,6 @@ class WebServer:
                     self.esp_process.send_404_response(conn_id)
 
         except KeyboardInterrupt as e:
-            log_message(e, log_file)
+            logger.exception(e)
             self.led_control_instance.stop_blinking()
             _thread.exit()

@@ -1,7 +1,13 @@
 from machine import Timer
 import time
 import sys
-from components.logger import log_message
+from lib.logging import getLogger, handlers, StreamHandler
+
+log_file = "connection_manager.txt"
+
+logger_connection_manager = getLogger("connection_manager")
+logger_connection_manager.addHandler(handlers.RotatingFileHandler(log_file))
+logger_connection_manager.addHandler(StreamHandler())
 
 
 def waiting_message(esp_process, timeout_seconds, start_time, times=0):
@@ -22,34 +28,30 @@ def waiting_message(esp_process, timeout_seconds, start_time, times=0):
     return None
 
 
-def connect_process(esp_process, log_file, attempt=0):
+def connect_process(esp_process, attempt=0):
     timeout_seconds = 30
     esp_process.initialized = None
     if attempt == 0 and esp_process.is_wifi_connected():
-        log_message("ESP already connected", log_file)
+        logger_connection_manager.info("ESP already connected")
         esp_process.initialized = True
         ip = esp_process.get_ip()
-        log_message("IP:" + ip, log_file)
+        logger_connection_manager.info("IP:" + ip)
         return True
     if attempt == 0:
         start_time = time.time()
         waiting_message(esp_process, timeout_seconds, start_time)
 
     esp_process.start()
-    # if attempt == 0:
-    #     esp_process.start()
-    # else:
-    #     esp_process.connect_to_wifi()
     if not esp_process.is_initialized():
-        log_message("ESP initialization failed", log_file)
+        logger_connection_manager.error("ESP initialization failed")
         if attempt < 3:
-            log_message("Retry:" + str(attempt + 1) + "/3", log_file)
-            return connect_process(esp_process, log_file, attempt + 1)
+            logger_connection_manager.info("Retry:" + str(attempt + 1) + "/3")
+            return connect_process(esp_process, attempt + 1)
         else:
-            log_message("Max retries reached.", log_file)
+            logger_connection_manager.critical("Max retries reached.")
             return False
     else:
-        log_message("ESP initialization succeeded", log_file)
+        logger_connection_manager.info("ESP initialization succeeded")
         ip = esp_process.get_ip()
-        log_message("IP:" + ip, log_file)
+        logger_connection_manager.info("IP:" + ip)
         return True

@@ -2,16 +2,22 @@ import sys
 from components.updater.updater import updater
 from machine import Pin
 from components.led_control import LEDControl
-from components.logger import log_message
+from lib.logging import getLogger, handlers, basicConfig, INFO, StreamHandler
 
 
 interrupt = Pin(0, Pin.IN, Pin.PULL_DOWN)
-log_file = "log.txt"
 led_control_instance = LEDControl(25)
+
+basicConfig(level=INFO)
+
+log_file = "boot.txt"
+logger_boot = getLogger("boot")
+logger_boot.addHandler(handlers.RotatingFileHandler(log_file))
+logger_boot.addHandler(StreamHandler())
 
 
 def boot():
-    log_message("Starting the application on Boot", log_file)
+    logger_boot.info("Starting the application on Boot")
     led_control_instance.start_blinking()
     update_instance = updater(
         wifi_ssid="Pabloysofi",
@@ -23,7 +29,7 @@ def boot():
     )
     update_instance.start_update()
     led_control_instance.stop_blinking()
-    log_message("Application completed", log_file)
+    logger_boot.info("Application completed")
 
 
 try:
@@ -31,6 +37,5 @@ try:
         raise KeyboardInterrupt("interrupt pin")
     boot()
 except KeyboardInterrupt as e:
-    print(e)
-    log_message("Application Interrupted", log_file)
+    logger_boot.exception("Application Interrupted:" + str(e))
     sys.exit()

@@ -1,15 +1,16 @@
 from components.esp.wifi import wifi_module
 
-from lib.logging import getLogger, handlers
+from lib.logging import getLogger, handlers, StreamHandler
 
 
 class web_server(wifi_module):
-    log_file = "espwebserverlog.txt"
+    log_file = "espwebserver.txt"
 
     def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
         super().__init__(wifi_ssid, wifi_pass, uart_tx, uart_rx)
-        self.logger = getLogger("web_server")
-        self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger_wifi_server = getLogger("espwebserver")
+        self.logger_wifi_server.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger_wifi_server.addHandler(StreamHandler())
 
     def start_web_server(self, port=80):
         """
@@ -19,10 +20,10 @@ class web_server(wifi_module):
             self.set_timeout(30)
             self.set_multiple_connections(1)
             self.set_server(1)
-            self.logger.info(f"ESP: Web server started on port {port}.")
+            self.logger_wifi_server.info(f"ESP: Web server started on port {port}.")
             return True
         except Exception as e:
-            self.logger.error(f"Failed to start web server on port {port}. error: {e}")
+            self.logger_wifi_server.error(f"Failed to start web server on port {port}. error: {e}")
             return False
 
     def handle_web_request(self):
@@ -31,7 +32,7 @@ class web_server(wifi_module):
         """
         response = self._receive_command(timeout=10)
         response = response.decode()
-        self.logger.debug("Received response: " + response)
+        self.logger_wifi_server.debug("Received response: " + response)
         if len(response) <= 0:
             return None, None, None
 
@@ -67,7 +68,7 @@ class web_server(wifi_module):
             with open(html_file_path, "r") as html_file:
                 html_content = html_file.read()
         except OSError as e:
-            self.logger.error(f"Failed to read HTML file: {e}")
+            self.logger_wifi_server.error(f"Failed to read HTML file: {e}")
             self.send_404_response(conn_id)
             return False
 
@@ -92,10 +93,10 @@ class web_server(wifi_module):
 
         final_response = self._send_response(conn_id, "0\r\n")
         if final_response is False:
-            self.logger.error("Failed to send final chunk. ")
+            self.logger_wifi_server.error("Failed to send final chunk. ")
             return False
 
-        self.logger.info("Final chunk sent.")
+        self.logger_wifi_server.info("Final chunk sent.")
 
         self.close_connection(conn_id)
 
@@ -117,5 +118,5 @@ class web_server(wifi_module):
         if "> " in str(ret_data):
             return self._send_and_receive_command(response)
         else:
-            self.logger.critical("Failed to send HTTP response: " + str(ret_data))
+            self.logger_wifi_server.critical("Failed to send HTTP response: " + str(ret_data))
             return False

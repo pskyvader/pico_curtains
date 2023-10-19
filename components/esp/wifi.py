@@ -11,7 +11,7 @@ from components.esp.errors import (
     at_set,
 )
 
-from lib.logging import getLogger, handlers
+from lib.logging import getLogger, handlers, StreamHandler
 
 
 class wifi_module(ESPMODULE):
@@ -29,25 +29,26 @@ class wifi_module(ESPMODULE):
         self.WIFI_SSID = wifi_ssid
         self.WIFI_PASS = wifi_pass
         self.initialized = None  # Use None to indicate not yet initialized
-        self.logger = getLogger("wifi_module")
-        self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger_wifi_module = getLogger("wifi_module")
+        self.logger_wifi_module.addHandler(handlers.RotatingFileHandler(self.log_file))
+        self.logger_wifi_module.addHandler(StreamHandler())
 
     def pre_connect(self):
         try:
             mode = 3
             tx_data = "AT+CWMODE_CUR=" + str(mode)
             ret_data = self._send_and_receive_command(tx_data)
-            if ret_data == None or self.ESP8266_OK_STATUS not in str(ret_data):
+            if ret_data == None or self.ESP8266_OK_STATUS not in ret_data:
                 return False
 
             ret_data = self._send_and_receive_command("ATE0")
-            if ret_data == None or self.ESP8266_OK_STATUS not in str(ret_data):
+            if ret_data == None or self.ESP8266_OK_STATUS not in ret_data:
                 return False
         except Exception as e:
-            self.logger.error("Pre connect error: " + str(e))
+            self.logger_wifi_module.error("Pre connect error: " + str(e))
             return False
 
-        self.logger.info("Pre connect succeeded")
+        self.logger_wifi_module.info("Pre connect succeeded")
         return True
 
     def connect_to_wifi(self):
@@ -65,12 +66,10 @@ class wifi_module(ESPMODULE):
         self.initialized = False
 
         try:
-            ret_data = self._send_and_receive_command(tx_data, delay=5)
+            ret_data = self._send_and_receive_command(tx_data)
         except Exception as e:
-            self.logger.exception(e)
+            self.logger_wifi_module.exception(e)
             return None
-
-        ret_data = str(ret_data)
 
         if self.ESP8266_WIFI_CONNECTED in ret_data:
             if self.ESP8266_WIFI_GOT_IP_CONNECTED in ret_data:
@@ -96,11 +95,10 @@ class wifi_module(ESPMODULE):
         return self.initialized
 
     def is_wifi_connected(self):
-        self.logger.debug("Checking Wi-Fi connection...")
+        self.logger_wifi_module.debug("Checking Wi-Fi connection...")
         tx_data = "AT+CWJAP?"
         try:
             ret_data = self._send_and_receive_command(tx_data)
-            ret_data = str(ret_data)
             if (
                 ret_data
                 and self.ESP8266_OK_STATUS in ret_data
@@ -108,67 +106,67 @@ class wifi_module(ESPMODULE):
             ):
                 return True
         except Exception as e:
-            self.logger.exception(e)
+            self.logger_wifi_module.exception(e)
 
-        self.logger.error("Wi-Fi is not connected")
+        self.logger_wifi_module.error("Wi-Fi is not connected")
         return False
 
     def start(self):
-        self.logger.info("Initialize ESP...")
+        self.logger_wifi_module.info("Initialize ESP...")
         preconnect = self.pre_connect()
         if not preconnect:
             self.initialized = False
             return False
-        self.logger.info("ESP initialization started")
+        self.logger_wifi_module.info("ESP initialization started")
         return self.connect_to_wifi()
 
     def set_timeout(self, timeout=30):
         # Wait for incoming connection
         tx_data = f"AT+CIPSTO={timeout}"  # Set timeout for 30 seconds
-        ret_data = str(self._send_and_receive_command(tx_data))
+        ret_data = self._send_and_receive_command(tx_data)
 
         if self.ESP8266_OK_STATUS not in ret_data:
             raise at_set("timeout", tx_data)
 
     def set_multiple_connections(self, multiple=1):
         tx_data = f"AT+CIPMUX={multiple}"  # Set multiple connections
-        ret_data = str(self._send_and_receive_command(tx_data))
+        ret_data = self._send_and_receive_command(tx_data)
 
         if self.ESP8266_OK_STATUS not in ret_data:
             raise at_set("multiple connections", tx_data)
 
     def set_server(self, is_server=1):
         tx_data = f"AT+CIPSERVER={is_server}"  # set server
-        ret_data = str(self._send_and_receive_command(tx_data))
+        ret_data = self._send_and_receive_command(tx_data)
 
         if self.ESP8266_OK_STATUS not in ret_data:
             raise at_set("server", tx_data)
 
     def set_ssl(self, is_ssl=1):
         tx_data = f"AT+HTTPSSL={is_ssl}"
-        ret_data = str(self._send_and_receive_command(tx_data))
+        ret_data = self._send_and_receive_command(tx_data)
 
         if self.ESP8266_OK_STATUS not in ret_data:
             raise at_set("server", tx_data)
 
     def get_at_commands(self):
         tx_data = "AT+CLAC"
-        ret_data = str(self._send_and_receive_command(tx_data, 5))
+        ret_data = self._send_and_receive_command(tx_data, 5)
         if ret_data is not self.ESP8266_ERROR_STATUS:
             return ret_data
         return None
 
     def get_esp_version(self):
-        ret_data = str(self._send_and_receive_command("AT+GMR", 5))
+        ret_data = self._send_and_receive_command("AT+GMR", 5)
         if ret_data is not self.ESP8266_ERROR_STATUS:
             return ret_data
         return None
 
     def get_ip(self):
-        ret_data = str(self._send_and_receive_command("AT+CIFSR"))
+        ret_data = self._send_and_receive_command("AT+CIFSR")
         if self.ESP8266_OK_STATUS not in ret_data:
             return False
-
+        ret_data = str(ret_data)
         pattern = r'CIFSR:STAIP,"(.*?)"'
         match = ure.search(pattern, ret_data)
 
@@ -193,14 +191,15 @@ class wifi_module(ESPMODULE):
             + ","
             + str(keepalive)
         )
-        response = str(self._send_and_receive_command(tx_data))
+        response = self._send_and_receive_command(tx_data)
 
         if not response or self.ESP8266_OK_STATUS not in response:
             if "ALREADY CONNECTED\r\n" in response:
+                self.logger_wifi_module.debug("Already connected")
                 return True
             if attempt < 3:
-                self.logger.error(
-                    "TCP connection failed,retry:" + str(attempt + 1) + "/3"
+                self.logger_wifi_module.error(
+                    f"TCP connection failed:{response}\n,retry:{str(attempt + 1) }/3"
                 )
                 return self.create_tcp_connection(
                     host, port, is_ssl, keepalive, attempt + 1
@@ -216,12 +215,12 @@ class wifi_module(ESPMODULE):
         tx_data = (
             "AT+CIPCLOSE={}".format(conn_id) if conn_id is not None else "AT+CIPCLOSE"
         )
-        ret_data = str(self._send_and_receive_command(tx_data))
+        ret_data = self._send_and_receive_command(tx_data)
 
         if "CLOSED" in ret_data:
-            self.logger.info("Connection closed successfully.")
+            self.logger_wifi_module.info("Connection closed successfully.")
         else:
-            self.logger.error("Failed to close connection.")
+            self.logger_wifi_module.error("Failed to close connection.")
 
     def send_http_command(self, command, conn_id=None):
         tx_data = (
@@ -230,10 +229,10 @@ class wifi_module(ESPMODULE):
             else f"AT+CIPSEND={len(command)}"
         )
 
-        ret_data = str(self._send_and_receive_command(tx_data))
+        ret_data = self._send_and_receive_command(tx_data)
 
         if "> " in ret_data:
-            response = self._send_and_receive_command(command, delay=1)
+            response = self._send_and_receive_command(command)
             (header, body, status_code) = self.parse_http(response)
 
             if status_code != 200:
@@ -254,15 +253,21 @@ class wifi_module(ESPMODULE):
             return None, None, None
         try:
             http_res = str(http_res)[1:-1]
-            parsed_res = str(http_res).partition("+IPD,")[2]
+            self.logger_wifi_module.debug("step 1")
+            parsed_res = (http_res).partition("+IPD,")[2]
+            self.logger_wifi_module.debug("step 2: " + parsed_res)
             parsed_res = parsed_res.split(r"\r\n\r\n")
-            body_str = ure.sub(r"\+IPD,\d+:", "", str(parsed_res[1]))
+            self.logger_wifi_module.debug("step 3: " + (parsed_res[1]))
+            body_str = ure.sub(r"\+IPD,\d+:", "", (parsed_res[1]))
+            self.logger_wifi_module.debug("step 4: " + parsed_res[0])
 
-            headers_str = ure.sub(r"\+IPD,\d+:", "", str(parsed_res[0])).partition(":")[
-                2
-            ]
+            headers_str = ure.sub(r"\+IPD,\d+:", "", (parsed_res[0])).partition(":")[2]
+            self.logger_wifi_module.debug("step 5")
             status_code = -1
         except Exception as e:
+            self.logger_wifi_module.exception(
+                "parse error: " + str(e) + "\n\n\noriginal:" + http_res
+            )
             raise http_response_parse_invalid(e, http_res)
 
         headers = {}
@@ -272,22 +277,22 @@ class wifi_module(ESPMODULE):
                 headers[key.strip()] = value.strip()
 
         content_type = headers.get("Content-Type", "").lower()
-        self.logger.debug("content type: " + content_type)
+        self.logger_wifi_module.debug("content type: " + content_type)
         body = body_str
         if "text/html" in content_type:
             # If content type is HTML, parse the body as an HTML document
             try:
                 body = self.parse_html(body_str)
             except Exception as e:
-                self.logger.exception("HTML parse error: " + str(e))
+                self.logger_wifi_module.exception("HTML parse error: " + str(e))
                 body = body_str  # Fallback to a string if HTML parsing fails
         elif "application/json" in content_type:
             body_str = body_str.replace(r"\r\n", "")
-            self.logger.debug("body_str: " + str(body_str))
+            self.logger_wifi_module.debug("body_str: " + str(body_str))
             try:
                 body = ujson.loads(body_str)
             except ValueError as e:
-                self.logger.critical("JSON parse error: " + str(e))
+                self.logger_wifi_module.critical("JSON parse error: " + str(e))
                 body = body_str  # Fallback to a string if JSON parsing fails
 
         for status in str(headers_str.partition(r"\r\n")[0]).split():
