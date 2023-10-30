@@ -2,6 +2,7 @@ from machine import UART, Pin
 import time
 from components.esp.errors import at_unknown, at_empty
 from lib.logging import getLogger, handlers, StreamHandler
+import gc
 
 
 class ESPMODULE:
@@ -45,6 +46,12 @@ class ESPMODULE:
         while True:
             if self.uart.any() > 0:
                 while self.uart.any() > 0:
+                    gc.collect()
+                    self.logger.debug(
+                        "ESP free: {} allocated: {}".format(
+                            gc.mem_free(), gc.mem_alloc()
+                        )
+                    )
                     chunk = self.uart.read(self.UART_RX_BUFFER_LENGTH)
                     self.logger.debug("Receiving command chunk: ")
                     self.logger.debug(str(chunk))
@@ -57,7 +64,7 @@ class ESPMODULE:
         self.logger.debug("AT response: " + str(response))
         return response
 
-    def _parse_response(self, response_str):
+    def _validate_response(self, response_str):
         if self.ESP8266_OK_STATUS in response_str:
             return response_str
         elif self.ESP8266_ERROR_STATUS in response_str:
@@ -79,11 +86,16 @@ class ESPMODULE:
             try:
                 self.logger.debug("send command")
                 response = self._receive_command(timeout=attempts)
-                self.logger.debug("receive command")
-                response_str = self._parse_response(response)
             except Exception as e:
                 self.logger.error("Send and receive error: " + str(e))
                 return self.ESP8266_ERROR_STATUS
+            try:
+                self.logger.debug("receive command")
+                response_str = self._validate_response(response)
+            except Exception as e:
+                self.logger.error("Validation error: " + str(e))
+                return self.ESP8266_ERROR_STATUS
+
             if response_str == self.ESP8266_BUSY_STATUS:
                 step += 1
                 continue

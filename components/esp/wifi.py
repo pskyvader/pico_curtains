@@ -257,8 +257,7 @@ class wifi_module(ESPMODULE):
             parsed_res = (http_res).partition("+IPD,")[2]
             self.logger_wifi_module.debug("step 2: " + parsed_res)
             parsed_res = parsed_res.split(r"\r\n\r\n")
-            self.logger_wifi_module.debug("step 3 len: ")
-            print(str(len(parsed_res)))
+            self.logger_wifi_module.debug("step 3 len: " + str(len(parsed_res)))
 
             self.logger_wifi_module.debug("step 3: " + str("".join(parsed_res[1:])))
             body_str = ure.sub(r"\+IPD,\d+:", "", str("".join(parsed_res[1:])))
@@ -297,6 +296,13 @@ class wifi_module(ESPMODULE):
             except ValueError as e:
                 self.logger_wifi_module.critical("JSON parse error: " + str(e))
                 body = body_str  # Fallback to a string if JSON parsing fails
+        else:
+            # If content type is HTML, parse the body as an HTML document
+            try:
+                body = self.parse_file(body_str)
+            except Exception as e:
+                self.logger_wifi_module.exception("file parse error: " + str(e))
+                body = body_str  # Fallback to a string if HTML parsing fails
 
         for status in str(headers_str.partition(r"\r\n")[0]).split():
             if status.isdigit():
@@ -325,3 +331,10 @@ class wifi_module(ESPMODULE):
             result[tag].append(content)
 
         return result
+
+    def parse_file(self, text):
+        self.logger_wifi_module.debug(f"file content unprocessed: {text}")
+        file_content = str(text).replace("\\r\\n", "\r\n")
+        file_content = file_content.replace("\\\\r\\\\n", "\\r\\n")
+        self.logger_wifi_module.debug(f"file content: {file_content}")
+        return file_content

@@ -2,13 +2,13 @@ import sys
 from components.updater.updater import updater
 from machine import Pin
 from components.led_control import LEDControl
-from lib.logging import getLogger, handlers, basicConfig, INFO, StreamHandler
+from lib.logging import getLogger, handlers, basicConfig, DEBUG, StreamHandler
 
 
 interrupt = Pin(0, Pin.IN, Pin.PULL_DOWN)
 led_control_instance = LEDControl(25)
 
-basicConfig(level=INFO)
+basicConfig(level=DEBUG)
 
 log_file = "boot.txt"
 logger_boot = getLogger("boot")

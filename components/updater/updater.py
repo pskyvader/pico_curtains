@@ -4,6 +4,7 @@ from components.updater.version_manager import get_version
 from components.updater.backup_manager import BackupManager
 
 from lib.logging import getLogger, handlers, StreamHandler
+import gc
 
 
 class updater:
@@ -28,6 +29,8 @@ class updater:
     def _download_all_files(self, files_list):
         self.backup_manager.create_new_version(files_list)
         for file_url in files_list:
+            gc.collect()
+            self.logger_updater.info(f"free memory: {gc.mem_free()}")
             self.logger_updater.info(f"downloading file: {file_url}")
             file_path = self.backup_manager.new_version_dir + "/" + file_url
 
@@ -40,8 +43,8 @@ class updater:
             try:
                 with open(file_path, "wb") as file_object:
                     self.logger_updater.debug(f"file {file_path} open")
-
-                    file_object.write(str(body) + "\n")
+                    file_content = body
+                    file_object.write(file_content)
             except OSError as e:
                 self.logger_updater.error(
                     f"Failed to write file {file_url}->{file_path}:" + str(e)
@@ -67,8 +70,9 @@ class updater:
                     "Rolled back failed, RUUUUN B1TCH, RUUUUN!!!!"
                 )
                 return False
-            self.backup_manager.delete_old_version()
+            # self.backup_manager.delete_old_version()
             self.backup_manager.install_new_version()
+            self.backup_manager.delete_backup()
             # If everything goes well, return True
             self.logger_updater.info("Update process completed successfully")
             return True

@@ -52,6 +52,16 @@ class BackupManager(FileManager):
         )
         return True
 
+    def delete_backup(self):
+        self.logger_backup_manager.debug(
+            "deleting backup  {}...".format(self.backup_dir)
+        )
+        self._rmtree(self.backup_dir, preserve=[self.main_dir])
+        self.logger_backup_manager.debug(
+            "Backup deleted at {} ...".format(self.main_dir)
+        )
+        return True
+
     def delete_old_version(self):
         self.logger_backup_manager.debug(
             "Deleting old version at {} ...".format(self.main_dir),
