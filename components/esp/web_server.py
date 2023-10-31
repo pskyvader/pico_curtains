@@ -5,7 +5,7 @@ from lib.logging import getLogger, handlers, StreamHandler
 
 class web_server(wifi_module):
     log_file = "espwebserver.txt"
-    line_separator = "\r" + "\n"
+    server_line_separator = "\r" + "\n"
 
     def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
         super().__init__(wifi_ssid, wifi_pass, uart_tx, uart_rx)
@@ -51,14 +51,14 @@ class web_server(wifi_module):
             request_start = response.find("POST ")
         request_end = -1
         if request_start != -1:
-            request_end = response.find(self.line_separator * 2, request_start)
+            request_end = response.find(self.server_line_separator * 2, request_start)
 
         if request_end != -1:
             http_request = response[request_start:request_end]
 
             headers, request_body = (
-                http_request.split(self.line_separator * 2, 1)
-                if self.line_separator * 2 in http_request
+                http_request.split(self.server_line_separator * 2, 1)
+                if self.server_line_separator * 2 in http_request
                 else (http_request, "")
             )
 
@@ -77,11 +77,11 @@ class web_server(wifi_module):
 
         http_header = (
             "HTTP/1.1 200 OK"
-            + self.line_separator
+            + self.server_line_separator
             + "Content-Type: text/html"
-            + self.line_separator
+            + self.server_line_separator
             + "Transfer-Encoding: chunked"
-            + self.line_separator * 2
+            + self.server_line_separator * 2
         )
 
         header_response = self._send_response(conn_id, http_header)
@@ -93,13 +93,13 @@ class web_server(wifi_module):
             chunk = html_content[i : i + max_chunk_size]
 
             chunk_data = (
-                f"{len(chunk):X}{self.line_separator}{chunk}{self.line_separator*2}"
+                f"{len(chunk):X}{self.server_line_separator}{chunk}{self.server_line_separator*2}"
             )
             chunk_response = self._send_response(conn_id, chunk_data)
             if chunk_response is False:
                 return False
 
-        final_response = self._send_response(conn_id, "0" + self.line_separator)
+        final_response = self._send_response(conn_id, "0" + self.server_line_separator)
         if final_response is False:
             self.logger_wifi_server.error("Failed to send final chunk. ")
             return False
@@ -111,9 +111,9 @@ class web_server(wifi_module):
     def send_ok_response(self, conn_id):
         html_response = (
             "HTTP/1.1 200 OK"
-            + self.line_separator
+            + self.server_line_separator
             + "Content-Length: 2"
-            + self.line_separator * 2
+            + self.server_line_separator * 2
             + "OK"
         )
         self._send_response(conn_id, html_response)
@@ -121,9 +121,9 @@ class web_server(wifi_module):
     def send_404_response(self, conn_id):
         html_response = (
             "HTTP/1.1 404 Not Found"
-            + self.line_separator
+            + self.server_line_separator
             + "Content-Length: 9"
-            + self.line_separator * 2
+            + self.server_line_separator * 2
             + "Not Found"
         )
         self._send_response(conn_id, html_response)
@@ -132,7 +132,7 @@ class web_server(wifi_module):
         """
         Send an HTTP response to the client.
         """
-        tx_data = f"AT+CIPSEND={conn_id},{len(response)}{self.line_separator}"
+        tx_data = f"AT+CIPSEND={conn_id},{len(response)}{self.server_line_separator}"
         ret_data = self._send_and_receive_command(tx_data)
 
         if "> " in str(ret_data):

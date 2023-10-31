@@ -70,13 +70,11 @@ class Logger:
 
     def exception(self, msg, *args):
         self.log(ERROR, msg, *args)
-        # self.exc(sys.exc_info()[1], msg, *args)
 
     def addHandler(self, hdlr):
         if self.handlers is None:
             self.handlers = []
         self.handlers.append(hdlr)
-        # print(self.name, "total handlers:", len(self.handlers))
 
     def get_handlers(self):
         return self.handlers
@@ -197,23 +195,15 @@ class Formatter:
             return "{asctime" in self.fmt
 
     def format(self, record):
-        # The message attribute of the record is computed using msg % args.
         record.message = record.msg % record.args
 
-        # If the formatting string contains '(asctime)', format_time() is called to
-        # format the event time.
         if self.uses_time():
             record.asctime = self.format_time(record, self.datefmt)
 
-        # If there is exception information, it is formatted using format_exception()
-        # and appended to the message. The formatted exception information is cached
-        # in attribute exc_text.
         if record.exc_info is not None:
             record.exc_text += self.format_exception(record.exc_info)
             record.message += record.terminator + record.exc_text
 
-        # The record’s attribute dictionary is used as the operand to a string
-        # formatting operation.
         if self.style == "%":
             return self.fmt % record.__dict__
         elif self.style == "{":
@@ -224,7 +214,7 @@ class Formatter:
             )
 
     def format_time(self, record, datefmt=None):
-        assert datefmt is None  # datefmt is not supported
+        assert datefmt is None
         ct = utime.localtime(record.created)
         return "{0}-{1}-{2} {3}:{4}:{5}".format(*ct)
 

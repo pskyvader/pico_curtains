@@ -12,7 +12,8 @@ from lib.logging import getLogger, handlers, StreamHandler
 
 
 class wifi_module(ESPMODULE):
-    line_separator = "\r" + "\n"
+    # line_separator = "\r" + "\n"
+    line_separator = ""
     ESP8266_WIFI_CONNECTED = "WIFI CONNECTED" + line_separator
     ESP8266_WIFI_GOT_IP_CONNECTED = "WIFI GOT IP" + line_separator
     ESP8266_WIFI_DISCONNECTED = "WIFI DISCONNECT" + line_separator
@@ -132,6 +133,13 @@ class wifi_module(ESPMODULE):
         if self.ESP8266_OK_STATUS not in ret_data:
             raise at_set("multiple connections", tx_data)
 
+    def reset(self):
+        tx_data = "AT+RST"
+        ret_data = self._send_and_receive_command(tx_data)
+
+        if self.ESP8266_OK_STATUS not in ret_data:
+            raise at_set("reset", tx_data)
+
     def set_server(self, is_server=1):
         tx_data = f"AT+CIPSERVER={is_server}"  # set server
         ret_data = self._send_and_receive_command(tx_data)
@@ -230,6 +238,8 @@ class wifi_module(ESPMODULE):
 
         if "> " in ret_data:
             response = self._send_and_receive_command(command)
+            if response is None:
+                raise http_response_invalid("Empty response")
             (header, body, status_code) = self.parser.parse_http(response)
 
             if status_code != 200:

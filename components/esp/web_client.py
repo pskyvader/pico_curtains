@@ -9,7 +9,7 @@ from lib.logging import getLogger, handlers, StreamHandler
 
 class web_client(wifi_module):
     log_file = "espwebclientlog.txt"
-    line_separator = "\r" + "\n"
+    client_line_separator = "\r" + "\n"
 
     def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
         super().__init__(wifi_ssid, wifi_pass, uart_tx, uart_rx)
@@ -36,15 +36,15 @@ class web_client(wifi_module):
                 "GET "
                 + path
                 + " HTTP/1.1"
-                + self.line_separator
+                + self.client_line_separator
                 + "Host: "
                 + host
                 + ":"
                 + str(port)
-                + self.line_separator
+                + self.client_line_separator
                 + "User-Agent: "
                 + user_agent
-                + (self.line_separator * 2)
+                + (self.client_line_separator * 2)
             )
 
             (header, body, status_code) = self.send_http_command(get_req)

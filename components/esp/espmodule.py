@@ -3,17 +3,19 @@ import time
 from components.esp.errors import at_unknown, at_empty
 from lib.logging import getLogger, handlers, StreamHandler
 import gc
+import ure
 
 
 class ESPMODULE:
-    line_separator = "\r" + "\n"
+    # line_separator = "\r" + "\n"
+    line_separator = ""
     log_file = "espmodule.txt"
     ESP8266_OK_STATUS = "OK" + line_separator
     ESP8266_ERROR_STATUS = "ERROR" + line_separator
     ESP8266_FAIL_STATUS = "FAIL" + line_separator
     ESP8266_BUSY_STATUS = "busy p..." + line_separator
-    UART_TX_BUFFER_LENGTH = 1024
-    UART_RX_BUFFER_LENGTH = 1024 * 2
+    UART_TX_BUFFER_LENGTH = 512
+    UART_RX_BUFFER_LENGTH = 512 * 2
 
     def __init__(self, uart_tx, uart_rx):
         self.logger = getLogger("espmodule")
@@ -42,6 +44,7 @@ class ESPMODULE:
     def _receive_command(self, timeout=10):
         response = bytes()
         start_time = time.time()
+        chunk_number = 0
 
         while True:
             if self.uart.any() > 0:
@@ -57,7 +60,12 @@ class ESPMODULE:
                     self.logger.debug(
                         "Receiving command chunk, content: %s", str(chunk)
                     )
+                    if chunk_number > 0:
+                        replace_pattern = r"\+" + "IP" + "D" + r",\d+:"
+                        chunk = ure.sub(replace_pattern, b"", chunk)
+                        # response += chunk.replace(replace_text, b"")
                     response += chunk
+                    chunk_number += 1
                     # time.sleep(pause)
                 break
             if time.time() - start_time > timeout:

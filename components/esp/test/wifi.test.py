@@ -1,7 +1,8 @@
 from components.esp.wifi import wifi_module
-from lib.logging import basicConfig, INFO
+from lib.logging import basicConfig, DEBUG
+from components.connection_manager import connect_process
 
-basicConfig(level=INFO)
+basicConfig(level=DEBUG)
 
 
 class WebClientTestCase:
@@ -24,8 +25,14 @@ class WebClientTestCase:
         uart_tx = 4
         uart_rx = 5
         wifi_instance = wifi_module(wifi_ssid, wifi_pass, uart_tx, uart_rx)
+        wifi_instance.reset()
+        connect_process(wifi_instance)
+        self.assert_equal(True, wifi_instance.is_initialized())
+        if not wifi_instance.is_initialized():
+            print("No connection, update aborted.")
+            return False
 
-        path = "/lib/logging/__init__.py"
+        path = "/components/esp/response_parser.py"
         # path = "/"
         host = "192.168.1.231"
         port = 3000
@@ -57,6 +64,15 @@ class WebClientTestCase:
         wifi_instance.close_connection()
 
         self.assert_equal(expected_result, (header, body, status_code))
+
+        try:
+            with open(path, "wb") as file_object:
+                print(f"file {path} open")
+                file_content = body
+                file_object.write(file_content)
+        except OSError as e:
+            print(f"Failed to write file{path}:" + str(e))
+            return False
 
         # Print the test results
         print(f"Tests passed: {self.tests_passed}")
