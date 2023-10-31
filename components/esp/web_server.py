@@ -5,6 +5,7 @@ from lib.logging import getLogger, handlers, StreamHandler
 
 class web_server(wifi_module):
     log_file = "espwebserver.txt"
+    line_separator = "\r" + "\n"
 
     def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
         super().__init__(wifi_ssid, wifi_pass, uart_tx, uart_rx)
@@ -23,7 +24,9 @@ class web_server(wifi_module):
             self.logger_wifi_server.info(f"ESP: Web server started on port {port}.")
             return True
         except Exception as e:
-            self.logger_wifi_server.error(f"Failed to start web server on port {port}. error: {e}")
+            self.logger_wifi_server.error(
+                f"Failed to start web server on port {port}. error: {e}"
+            )
             return False
 
     def handle_web_request(self):
@@ -48,14 +51,14 @@ class web_server(wifi_module):
             request_start = response.find("POST ")
         request_end = -1
         if request_start != -1:
-            request_end = response.find("\r\n\r\n", request_start)
+            request_end = response.find(self.line_separator * 2, request_start)
 
         if request_end != -1:
             http_request = response[request_start:request_end]
 
             headers, request_body = (
-                http_request.split("\r\n\r\n", 1)
-                if "\r\n\r\n" in http_request
+                http_request.split(self.line_separator * 2, 1)
+                if self.line_separator * 2 in http_request
                 else (http_request, "")
             )
 
@@ -73,9 +76,12 @@ class web_server(wifi_module):
             return False
 
         http_header = (
-            "HTTP/1.1 200 OK\r\n"
-            "Content-Type: text/html\r\n"
-            "Transfer-Encoding: chunked\r\n\r\n"
+            "HTTP/1.1 200 OK"
+            + self.line_separator
+            + "Content-Type: text/html"
+            + self.line_separator
+            + "Transfer-Encoding: chunked"
+            + self.line_separator * 2
         )
 
         header_response = self._send_response(conn_id, http_header)
@@ -86,12 +92,14 @@ class web_server(wifi_module):
         for i in range(0, len(html_content), max_chunk_size):
             chunk = html_content[i : i + max_chunk_size]
 
-            chunk_data = f"{len(chunk):X}\r\n{chunk}\r\n"
+            chunk_data = (
+                f"{len(chunk):X}{self.line_separator}{chunk}{self.line_separator*2}"
+            )
             chunk_response = self._send_response(conn_id, chunk_data)
             if chunk_response is False:
                 return False
 
-        final_response = self._send_response(conn_id, "0\r\n")
+        final_response = self._send_response(conn_id, "0" + self.line_separator)
         if final_response is False:
             self.logger_wifi_server.error("Failed to send final chunk. ")
             return False
@@ -101,22 +109,36 @@ class web_server(wifi_module):
         self.close_connection(conn_id)
 
     def send_ok_response(self, conn_id):
-        html_response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK"
+        html_response = (
+            "HTTP/1.1 200 OK"
+            + self.line_separator
+            + "Content-Length: 2"
+            + self.line_separator * 2
+            + "OK"
+        )
         self._send_response(conn_id, html_response)
 
     def send_404_response(self, conn_id):
-        html_response = "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\n\r\nNot Found"
+        html_response = (
+            "HTTP/1.1 404 Not Found"
+            + self.line_separator
+            + "Content-Length: 9"
+            + self.line_separator * 2
+            + "Not Found"
+        )
         self._send_response(conn_id, html_response)
 
     def _send_response(self, conn_id, response):
         """
         Send an HTTP response to the client.
         """
-        tx_data = f"AT+CIPSEND={conn_id},{len(response)}\r\n"
+        tx_data = f"AT+CIPSEND={conn_id},{len(response)}{self.line_separator}"
         ret_data = self._send_and_receive_command(tx_data)
 
         if "> " in str(ret_data):
             return self._send_and_receive_command(response)
         else:
-            self.logger_wifi_server.critical("Failed to send HTTP response: " + str(ret_data))
+            self.logger_wifi_server.critical(
+                "Failed to send HTTP response: " + str(ret_data)
+            )
             return False

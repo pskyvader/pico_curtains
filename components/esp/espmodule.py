@@ -6,11 +6,12 @@ import gc
 
 
 class ESPMODULE:
+    line_separator = "\r" + "\n"
     log_file = "espmodule.txt"
-    ESP8266_OK_STATUS = "OK\r\n"
-    ESP8266_ERROR_STATUS = "ERROR\r\n"
-    ESP8266_FAIL_STATUS = "FAIL\r\n"
-    ESP8266_BUSY_STATUS = "busy p...\r\n"
+    ESP8266_OK_STATUS = "OK" + line_separator
+    ESP8266_ERROR_STATUS = "ERROR" + line_separator
+    ESP8266_FAIL_STATUS = "FAIL" + line_separator
+    ESP8266_BUSY_STATUS = "busy p..." + line_separator
     UART_TX_BUFFER_LENGTH = 1024
     UART_RX_BUFFER_LENGTH = 1024 * 2
 
@@ -35,33 +36,34 @@ class ESPMODULE:
         """
         Send an AT command to ESP8266 and receive its response.
         """
-        self.logger.debug("AT command: ")
-        self.logger.debug(str(at_command))
-        self.uart.write(at_command + "\r\n")
+        self.logger.debug("AT command: %s", str(at_command))
+        self.uart.write(at_command + self.line_separator)
 
-    def _receive_command(self, pause=1, timeout=10):
+    def _receive_command(self, timeout=10):
         response = bytes()
         start_time = time.time()
 
         while True:
             if self.uart.any() > 0:
                 while self.uart.any() > 0:
-                    gc.collect()
+                    # gc.collect()
                     self.logger.debug(
                         "ESP free: {} allocated: {}".format(
                             gc.mem_free(), gc.mem_alloc()
                         )
                     )
                     chunk = self.uart.read(self.UART_RX_BUFFER_LENGTH)
-                    self.logger.debug("Receiving command chunk: ")
-                    self.logger.debug(str(chunk))
+                    self.logger.debug("Received chunk, type: %s", type(chunk))
+                    self.logger.debug(
+                        "Receiving command chunk, content: %s", str(chunk)
+                    )
                     response += chunk
                     # time.sleep(pause)
                 break
             if time.time() - start_time > timeout:
                 break
             # time.sleep(pause)
-        self.logger.debug("AT response: " + str(response))
+        self.logger.debug("AT response: %s", str(response))
         return response
 
     def _validate_response(self, response_str):
@@ -84,16 +86,16 @@ class ESPMODULE:
         step = 0
         while step < attempts:
             try:
-                self.logger.debug("send command")
-                response = self._receive_command(timeout=attempts)
+                self.logger.debug("send command and receive command")
+                response = self._receive_command()
             except Exception as e:
-                self.logger.error("Send and receive error: " + str(e))
+                self.logger.error("Send and receive error: %s", str(e))
                 return self.ESP8266_ERROR_STATUS
             try:
                 self.logger.debug("receive command")
                 response_str = self._validate_response(response)
             except Exception as e:
-                self.logger.error("Validation error: " + str(e))
+                self.logger.error("Validation error: %s", str(e))
                 return self.ESP8266_ERROR_STATUS
 
             if response_str == self.ESP8266_BUSY_STATUS:

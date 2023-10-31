@@ -1,28 +1,24 @@
-import ujson
 import ure
 
 from components.esp.espmodule import ESPMODULE
-
 from components.esp.errors import (
     http_connection_fail,
     http_command_fail,
-    http_response_parse_invalid,
     http_response_invalid,
     at_set,
 )
-
+from components.esp.response_parser import response_parser
 from lib.logging import getLogger, handlers, StreamHandler
 
 
 class wifi_module(ESPMODULE):
-    ESP8266_WIFI_CONNECTED = "WIFI CONNECTED\r\n"
-    ESP8266_WIFI_GOT_IP_CONNECTED = "WIFI GOT IP\r\n"
-    ESP8266_WIFI_DISCONNECTED = "WIFI DISCONNECT\r\n"
-    ESP8266_WIFI_AP_NOT_PRESENT = "WIFI AP NOT FOUND\r\n"
-    ESP8266_WIFI_AP_WRONG_PWD = "WIFI AP WRONG PASSWORD\r\n"
+    line_separator = "\r" + "\n"
+    ESP8266_WIFI_CONNECTED = "WIFI CONNECTED" + line_separator
+    ESP8266_WIFI_GOT_IP_CONNECTED = "WIFI GOT IP" + line_separator
+    ESP8266_WIFI_DISCONNECTED = "WIFI DISCONNECT" + line_separator
+    ESP8266_WIFI_AP_NOT_PRESENT = "WIFI AP NOT FOUND" + line_separator
+    ESP8266_WIFI_AP_WRONG_PWD = "WIFI AP WRONG PASSWORD" + line_separator
     log_file = "espwifilog.txt"
-
-    # HTTP_STATUS_OK = "HTTP/1.1 200 OK\r\n"
 
     def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
         super().__init__(uart_tx, uart_rx)
@@ -32,6 +28,7 @@ class wifi_module(ESPMODULE):
         self.logger_wifi_module = getLogger("wifi_module")
         self.logger_wifi_module.addHandler(handlers.RotatingFileHandler(self.log_file))
         self.logger_wifi_module.addHandler(StreamHandler())
+        self.parser = response_parser()
 
     def pre_connect(self):
         try:
@@ -68,7 +65,7 @@ class wifi_module(ESPMODULE):
         try:
             ret_data = self._send_and_receive_command(tx_data)
         except Exception as e:
-            self.logger_wifi_module.exception(e)
+            self.logger_wifi_module.exception(str(e))
             return None
 
         if self.ESP8266_WIFI_CONNECTED in ret_data:
@@ -106,7 +103,7 @@ class wifi_module(ESPMODULE):
             ):
                 return True
         except Exception as e:
-            self.logger_wifi_module.exception(e)
+            self.logger_wifi_module.exception(str(e))
 
         self.logger_wifi_module.error("Wi-Fi is not connected")
         return False
@@ -194,12 +191,12 @@ class wifi_module(ESPMODULE):
         response = self._send_and_receive_command(tx_data)
 
         if not response or self.ESP8266_OK_STATUS not in response:
-            if "ALREADY CONNECTED\r\n" in response:
+            if "ALREADY CONNECTED" in response:
                 self.logger_wifi_module.debug("Already connected")
                 return True
             if attempt < 3:
                 self.logger_wifi_module.error(
-                    f"TCP connection failed:{response}\n,retry:{str(attempt + 1) }/3"
+                    f"TCP connection failed:{response}{self.line_separator},retry:{str(attempt + 1) }/3"
                 )
                 return self.create_tcp_connection(
                     host, port, is_ssl, keepalive, attempt + 1
@@ -233,7 +230,7 @@ class wifi_module(ESPMODULE):
 
         if "> " in ret_data:
             response = self._send_and_receive_command(command)
-            (header, body, status_code) = self.parse_http(response)
+            (header, body, status_code) = self.parser.parse_http(response)
 
             if status_code != 200:
                 raise http_response_invalid(body)
@@ -241,100 +238,3 @@ class wifi_module(ESPMODULE):
             return (header, body, status_code)
         else:
             raise http_command_fail(command)
-
-    def parse_http(self, http_res):
-        """
-        This funtion use to parse the HTTP response and return back the HTTP status code
-
-        Return:
-            HTTP status code.
-        """
-        if http_res == None:
-            return None, None, None
-        try:
-            http_res = str(http_res)[1:-1]
-            self.logger_wifi_module.debug("step 1")
-            parsed_res = (http_res).partition("+IPD,")[2]
-            self.logger_wifi_module.debug("step 2: " + parsed_res)
-            parsed_res = parsed_res.split(r"\r\n\r\n")
-            self.logger_wifi_module.debug("step 3 len: " + str(len(parsed_res)))
-
-            self.logger_wifi_module.debug("step 3: " + str("".join(parsed_res[1:])))
-            body_str = ure.sub(r"\+IPD,\d+:", "", str("".join(parsed_res[1:])))
-            self.logger_wifi_module.debug("step 4: " + parsed_res[0])
-
-            headers_str = ure.sub(r"\+IPD,\d+:", "", (parsed_res[0])).partition(":")[2]
-            self.logger_wifi_module.debug("step 5")
-            status_code = -1
-        except Exception as e:
-            self.logger_wifi_module.exception(
-                f"parse error: {str(e)}\n\n\nargs:{str(e.args)}original:{http_res}"
-            )
-            raise http_response_parse_invalid(e, http_res)
-
-        headers = {}
-        for line in headers_str.split(r"\r\n"):
-            if ":" in line:
-                key, value = line.split(":", 1)
-                headers[key.strip()] = value.strip()
-
-        content_type = headers.get("Content-Type", "").lower()
-        self.logger_wifi_module.debug("content type: " + content_type)
-        body = body_str
-        if "text/html" in content_type:
-            # If content type is HTML, parse the body as an HTML document
-            try:
-                body = self.parse_html(body_str)
-            except Exception as e:
-                self.logger_wifi_module.exception("HTML parse error: " + str(e))
-                body = body_str  # Fallback to a string if HTML parsing fails
-        elif "application/json" in content_type:
-            body_str = body_str.replace(r"\r\n", "")
-            self.logger_wifi_module.debug("body_str: " + str(body_str))
-            try:
-                body = ujson.loads(body_str)
-            except ValueError as e:
-                self.logger_wifi_module.critical("JSON parse error: " + str(e))
-                body = body_str  # Fallback to a string if JSON parsing fails
-        else:
-            # If content type is HTML, parse the body as an HTML document
-            try:
-                body = self.parse_file(body_str)
-            except Exception as e:
-                self.logger_wifi_module.exception("file parse error: " + str(e))
-                body = body_str  # Fallback to a string if HTML parsing fails
-
-        for status in str(headers_str.partition(r"\r\n")[0]).split():
-            if status.isdigit():
-                status_code = int(status)
-
-        return headers, body, status_code
-
-    def parse_html(self, html):
-        result = {}
-        while "<" in html and ">" in html:
-            start = html.index("<") + 1
-            end = html.index(">")
-            tag = html[start:end]
-            html = html[end + 1 :]
-
-            if "<" in html:
-                end = html.index("<")
-                content = html[:end]
-                html = html[end:]
-            else:
-                content = html
-                html = ""
-
-            if tag not in result:
-                result[tag] = []
-            result[tag].append(content)
-
-        return result
-
-    def parse_file(self, text):
-        self.logger_wifi_module.debug(f"file content unprocessed: {text}")
-        file_content = str(text).replace("\\r\\n", "\r\n")
-        file_content = file_content.replace("\\\\r\\\\n", "\\r\\n")
-        self.logger_wifi_module.debug(f"file content: {file_content}")
-        return file_content

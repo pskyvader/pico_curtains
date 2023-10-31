@@ -3,7 +3,16 @@ import time
 
 
 class Button:
-    def __init__(self, pin, name, debounce_time=300, holding_time=700):
+    def __init__(
+        self,
+        pin,
+        name,
+        debounce_time=300,
+        holding_time=700,
+        on_pressed=None,
+        on_released=None,
+        on_held=None,
+    ):
         self.pin = machine.Pin(pin, machine.Pin.IN, machine.Pin.PULL_UP)
         self.name = name
         self.debounce_time = debounce_time
@@ -14,9 +23,9 @@ class Button:
         self.holding = False
 
         # Event handlers for button presses, releases, and holds
-        self.on_pressed = None
-        self.on_released = None
-        self.on_held = None
+        self.on_pressed = on_pressed
+        self.on_released = on_released
+        self.on_held = on_held
 
     def _handle_pressed(self, current_time):
         if current_time - self.press_time >= self.debounce_time:

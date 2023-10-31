@@ -27,6 +27,9 @@ class updater:
         self.logger_updater.addHandler(StreamHandler())
 
     def _download_all_files(self, files_list):
+        if files_list is None:
+            files_list = []
+        # files_list.reverse()
         self.backup_manager.create_new_version(files_list)
         for file_url in files_list:
             gc.collect()
