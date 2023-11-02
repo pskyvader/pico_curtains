@@ -7,26 +7,30 @@ import ure
 
 
 class ESPMODULE:
-    # line_separator = "\r" + "\n"
-    line_separator = ""
+    line_separator = "\r" + "\n"
+    # line_separator = ""
     log_file = "espmodule.txt"
-    ESP8266_OK_STATUS = "OK" + line_separator
-    ESP8266_ERROR_STATUS = "ERROR" + line_separator
-    ESP8266_FAIL_STATUS = "FAIL" + line_separator
-    ESP8266_BUSY_STATUS = "busy p..." + line_separator
+    ESP8266_OK_STATUS = "OK"
+    ESP8266_ERROR_STATUS = "ERROR"
+    ESP8266_FAIL_STATUS = "FAIL"
+    ESP8266_BUSY_STATUS = "busy p..."
     UART_TX_BUFFER_LENGTH = 512
     UART_RX_BUFFER_LENGTH = 512 * 2
+    BAUDRATE = int(115200)
+    # BAUDRATE = 9600
 
-    def __init__(self, uart_tx, uart_rx):
+    def __init__(self, uart_tx, uart_rx, baudrate=None):
         self.logger = getLogger("espmodule")
         self.logger.addHandler(handlers.RotatingFileHandler(self.log_file))
         self.logger.addHandler(StreamHandler())
         self.ESP_UART_TX = uart_tx
         self.ESP_UART_RX = uart_rx
+        if baudrate is not None:
+            self.BAUDRATE = baudrate
 
         self.uart = UART(
             1,
-            baudrate=115200,
+            baudrate=self.BAUDRATE,
             tx=Pin(self.ESP_UART_TX),
             rx=Pin(self.ESP_UART_RX),
             txbuf=self.UART_TX_BUFFER_LENGTH,
@@ -56,13 +60,14 @@ class ESPMODULE:
                         )
                     )
                     chunk = self.uart.read(self.UART_RX_BUFFER_LENGTH)
-                    self.logger.debug("Received chunk, type: %s", type(chunk))
                     self.logger.debug(
                         "Receiving command chunk, content: %s", str(chunk)
                     )
                     if chunk_number > 0:
                         replace_pattern = r"\+" + "IP" + "D" + r",\d+:"
-                        chunk = ure.sub(replace_pattern, b"", chunk)
+                        chunk = ure.sub(
+                            self.line_separator + replace_pattern, b"", chunk
+                        )
                         # response += chunk.replace(replace_text, b"")
                     response += chunk
                     chunk_number += 1

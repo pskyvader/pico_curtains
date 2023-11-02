@@ -91,13 +91,8 @@ class WebServer:
                     raise KeyboardInterrupt("interrupt pin")
                 if not self.led_control_instance.is_blinking:
                     self.led_control_instance.start_blinking()
-                else:
-                    self.led_control_instance.stop_blinking()
-
-                logger.info(
-                    "Loop:",
-                    thread_log_file,
-                )
+                # else:
+                #     self.led_control_instance.stop_blinking()
                 headers, request_body, conn_id = self.esp_process.handle_web_request()
                 if headers is None:
                     if request_body is not None:

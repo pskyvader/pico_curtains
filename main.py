@@ -1,10 +1,10 @@
 import sys
 from machine import Pin
 from components import motor_control, led_control, button_control, webserver
-from lib.logging import getLogger, handlers, basicConfig, ERROR, StreamHandler
+from lib.logging import getLogger, handlers, basicConfig, INFO, StreamHandler
 
 
-basicConfig(level=ERROR, stream=sys.stdout)
+basicConfig(level=INFO)
 log_file = "main.txt"
 logger_main = getLogger("main")
 logger_main.addHandler(handlers.RotatingFileHandler(log_file))

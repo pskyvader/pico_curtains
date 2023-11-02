@@ -12,17 +12,17 @@ from lib.logging import getLogger, handlers, StreamHandler
 
 
 class wifi_module(ESPMODULE):
-    # line_separator = "\r" + "\n"
-    line_separator = ""
-    ESP8266_WIFI_CONNECTED = "WIFI CONNECTED" + line_separator
-    ESP8266_WIFI_GOT_IP_CONNECTED = "WIFI GOT IP" + line_separator
-    ESP8266_WIFI_DISCONNECTED = "WIFI DISCONNECT" + line_separator
-    ESP8266_WIFI_AP_NOT_PRESENT = "WIFI AP NOT FOUND" + line_separator
-    ESP8266_WIFI_AP_WRONG_PWD = "WIFI AP WRONG PASSWORD" + line_separator
+    line_separator = "\r" + "\n"
+    # line_separator = ""
+    ESP8266_WIFI_CONNECTED = "WIFI CONNECTED"
+    ESP8266_WIFI_GOT_IP_CONNECTED = "WIFI GOT IP"
+    ESP8266_WIFI_DISCONNECTED = "WIFI DISCONNECT"
+    ESP8266_WIFI_AP_NOT_PRESENT = "WIFI AP NOT FOUND"
+    ESP8266_WIFI_AP_WRONG_PWD = "WIFI AP WRONG PASSWORD"
     log_file = "espwifilog.txt"
 
-    def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx):
-        super().__init__(uart_tx, uart_rx)
+    def __init__(self, wifi_ssid, wifi_pass, uart_tx, uart_rx, baudrate=None):
+        super().__init__(uart_tx, uart_rx, baudrate)
         self.WIFI_SSID = wifi_ssid
         self.WIFI_PASS = wifi_pass
         self.initialized = None  # Use None to indicate not yet initialized
@@ -134,7 +134,8 @@ class wifi_module(ESPMODULE):
             raise at_set("multiple connections", tx_data)
 
     def reset(self):
-        tx_data = "AT+RST"
+        # tx_data = "AT+RST"
+        tx_data = "AT+RESTORE"
         ret_data = self._send_and_receive_command(tx_data)
 
         if self.ESP8266_OK_STATUS not in ret_data:
@@ -163,7 +164,7 @@ class wifi_module(ESPMODULE):
 
     def get_esp_version(self):
         ret_data = self._send_and_receive_command("AT+GMR", 5)
-        if ret_data is not self.ESP8266_ERROR_STATUS:
+        if self.ESP8266_ERROR_STATUS not in ret_data:
             return ret_data
         return None
 
@@ -227,7 +228,7 @@ class wifi_module(ESPMODULE):
         else:
             self.logger_wifi_module.error("Failed to close connection.")
 
-    def send_http_command(self, command, conn_id=None):
+    def send_http_command(self, command, conn_id=None, parse=False):
         tx_data = (
             f"AT+CIPSEND={conn_id},{len(command)}"
             if conn_id is not None
@@ -240,7 +241,7 @@ class wifi_module(ESPMODULE):
             response = self._send_and_receive_command(command)
             if response is None:
                 raise http_response_invalid("Empty response")
-            (header, body, status_code) = self.parser.parse_http(response)
+            (header, body, status_code) = self.parser.parse_http(response, parse)
 
             if status_code != 200:
                 raise http_response_invalid(body)

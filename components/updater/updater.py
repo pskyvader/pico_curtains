@@ -38,7 +38,7 @@ class updater:
             file_path = self.backup_manager.new_version_dir + "/" + file_url
 
             (header, body, status_code) = self.esp_process.get_url_response(
-                self.update_url + file_url, port=self.update_port
+                self.update_url + file_url, port=self.update_port, parse=False
             )
             if status_code != 200:
                 self.logger_updater.error(f"Failed to download file: {file_url}")
@@ -54,7 +54,7 @@ class updater:
                 )
                 return False
             except Exception as e:
-                print(f"An error occurred: {e}")
+                self.logger_updater.error(f"An error occurred: {e}")
         return True
 
     def update_process(self, files_list):
@@ -91,7 +91,9 @@ class updater:
 
         url = self.update_url
         port = self.update_port
-        (header, body, status_code) = self.esp_process.get_url_response(url, port)
+        (header, body, status_code) = self.esp_process.get_url_response(
+            url, port, parse=True
+        )
         if body == None:
             self.logger_updater.error("No body found")
             return False

@@ -93,7 +93,7 @@ class BackupManager(FileManager):
             self._mk_dirs(directory)
 
     def install_new_version(self):
-        self.logger_backup_manager.debug(
+        self.logger_backup_manager.info(
             "Installing new version at  {} -> {}...".format(
                 self.new_version_dir, self.main_dir
             )
@@ -106,10 +106,10 @@ class BackupManager(FileManager):
             self._copy_directory(
                 self.new_version_dir,
                 self.main_dir,
-                exclude=[self.new_version_dir, self.backup_dir],
+                exclude=[self.main_dir, self.backup_dir],
             )
             self._rmtree(
-                self.new_version_dir, preserve=[self.main_dir, self.backup_dir]
+                self.new_version_dir, preserve=[self.main_dir]
             )
         self.logger_backup_manager.info(
             "Update installed, please reboot now",

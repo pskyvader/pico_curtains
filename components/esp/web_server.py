@@ -18,7 +18,7 @@ class web_server(wifi_module):
         Start a simple HTTP server on the ESP8266.
         """
         try:
-            self.set_timeout(30)
+            # self.set_timeout(30)
             self.set_multiple_connections(1)
             self.set_server(1)
             self.logger_wifi_server.info(f"ESP: Web server started on port {port}.")

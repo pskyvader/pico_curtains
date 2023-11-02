@@ -1,8 +1,8 @@
 from components.esp.wifi import wifi_module
-from lib.logging import basicConfig, DEBUG
+from lib.logging import basicConfig, INFO
 from components.connection_manager import connect_process
 
-basicConfig(level=DEBUG)
+basicConfig(level=INFO)
 
 
 class WebClientTestCase:
@@ -24,8 +24,14 @@ class WebClientTestCase:
         wifi_pass = "jaimitoelperrito"
         uart_tx = 4
         uart_rx = 5
-        wifi_instance = wifi_module(wifi_ssid, wifi_pass, uart_tx, uart_rx)
-        wifi_instance.reset()
+        baudrate = int(115200)
+
+        wifi_instance = wifi_module(
+            wifi_ssid, wifi_pass, uart_tx, uart_rx, baudrate=baudrate
+        )
+        # print(wifi_instance._send_and_receive_command("AT"))
+        # wifi_instance.reset()
+        # wifi_instance.get_esp_version()
         connect_process(wifi_instance)
         self.assert_equal(True, wifi_instance.is_initialized())
         if not wifi_instance.is_initialized():

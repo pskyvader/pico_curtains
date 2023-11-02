@@ -14,7 +14,9 @@ def get_local_version(file_location):
 
             parsed_json = ujson.loads(json_data)
             if parsed_json and parsed_json["version"]:
-                logger_version_manager.debug("Local Version: " + str(parsed_json["version"]))
+                logger_version_manager.debug(
+                    "Local Version: " + str(parsed_json["version"])
+                )
                 return parsed_json["version"]
             return None
 
@@ -27,7 +29,7 @@ def get_version(esp_process, url, port, version_file, files_list):
     matches = [match for match in files_list if version_file in match]
     if len(matches) > 0:
         (header, body, status_code) = esp_process.get_url_response(
-            url + version_file, port
+            url + version_file, port, parse=True
         )
         if body == None or not body["version"]:
             logger_version_manager.info("No remote version body found")
