@@ -8,8 +8,10 @@ import gc
 
 
 class updater:
+    index_file="index.json"
     version_file = "version.json"
     log_file = "updater_log.txt"
+
 
     def __init__(
         self, wifi_ssid, wifi_pass, update_url, update_port=80, uart_tx=4, uart_rx=5
@@ -89,7 +91,7 @@ class updater:
             self.logger_updater.error("No connection, update aborted.")
             return False
 
-        url = self.update_url
+        url = self.update_url+index_file
         port = self.update_port
         (header, body, status_code) = self.esp_process.get_url_response(
             url, port, parse=True

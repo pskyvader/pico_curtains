@@ -22,8 +22,8 @@ def boot():
     update_instance = updater(
         wifi_ssid="Pabloysofi",
         wifi_pass="jaimitoelperrito",
-        update_url="http://192.168.1.231/",
-        update_port=3000,
+        update_url="http://homeassistant:8123/local/pico_curtains/",
+        update_port=80,
         uart_tx=4,
         uart_rx=5,
     )
